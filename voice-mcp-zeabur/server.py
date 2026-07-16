@@ -1,12 +1,13 @@
 """
 昨的语音条 MCP Server (Zeabur 适配版)
-基于祈牌语音条改造，适配 Zeabur 容器部署。
+基于祈牌语音条改造，适配 Zeabur 容器部署 + Claude OAuth shim。
 """
 
-import os, json, base64, hashlib, asyncio, subprocess
+import os, json, base64, hashlib, asyncio, subprocess, uuid, time, secrets
 import aiohttp, numpy as np
 from pathlib import Path
 from aiohttp import web
+from urllib.parse import urlencode, parse_qs, urlparse
 
 os.environ["MCP_DISABLE_TRANSPORT_SECURITY"] = "1"
 
@@ -213,7 +214,7 @@ async def send_voice(text: str) -> VoicePayload:
     cfg = load_config()
     engine = cfg.get("tts_engine", "elevenlabs")
     if not cfg.get(engine, {}).get("api_key"):
-        raise Exception(f"{engine} API key 未配置，请在 Zeabur 设置环境变量 ELEVENLABS_API_KEY")
+        raise Exception(f"{engine} API key 未配置")
 
     audio, mime = await generate_speech(text, cfg)
     style = cfg["style"]
@@ -258,11 +259,175 @@ async def voice_config(
     return json.dumps(safe, indent=2, ensure_ascii=False)
 
 
-# ── Main ───────────────────────────────────────────────────
+# ── OAuth Shim for Claude Connector ───────────────────────
+# Claude requires OAuth endpoints to register a custom connector.
+# This implements a minimal pass-through OAuth that auto-approves.
+
+_oauth_codes = {}   # code -> {client_id, redirect_uri, ts}
+_oauth_clients = {} # client_id -> {secret, redirect_uris}
+
+def get_base_url():
+    return os.environ.get("PUBLIC_BASE_URL", "https://zuo1.zeabur.app").rstrip("/")
+
+async def handle_oauth_metadata(request):
+    base = get_base_url()
+    return web.json_response({
+        "issuer": base,
+        "authorization_endpoint": f"{base}/oauth/authorize",
+        "token_endpoint": f"{base}/oauth/token",
+        "registration_endpoint": f"{base}/oauth/register",
+        "response_types_supported": ["code"],
+        "grant_types_supported": ["authorization_code", "refresh_token"],
+        "token_endpoint_auth_methods_supported": ["client_secret_post", "client_secret_basic"],
+        "code_challenge_methods_supported": ["S256", "plain"],
+    })
+
+async def handle_oauth_register(request):
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    client_id = "voice-" + secrets.token_hex(8)
+    client_secret = secrets.token_hex(16)
+    redirect_uris = data.get("redirect_uris", [])
+    _oauth_clients[client_id] = {"secret": client_secret, "redirect_uris": redirect_uris}
+    return web.json_response({
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "redirect_uris": redirect_uris,
+        "grant_types": ["authorization_code", "refresh_token"],
+        "response_types": ["code"],
+        "token_endpoint_auth_method": "client_secret_post",
+    })
+
+async def handle_oauth_authorize(request):
+    params = request.query
+    redirect_uri = params.get("redirect_uri", "")
+    client_id = params.get("client_id", "")
+    state = params.get("state", "")
+    code = secrets.token_hex(16)
+    _oauth_codes[code] = {"client_id": client_id, "redirect_uri": redirect_uri, "ts": time.time()}
+    sep = "&" if "?" in redirect_uri else "?"
+    location = f"{redirect_uri}{sep}code={code}&state={state}"
+    return web.HTTPFound(location)
+
+async def handle_oauth_token(request):
+    try:
+        data = await request.post()
+    except Exception:
+        data = {}
+    if not data:
+        try:
+            data = await request.json()
+        except Exception:
+            data = {}
+    grant_type = data.get("grant_type", "")
+    if grant_type == "refresh_token":
+        return web.json_response({
+            "access_token": secrets.token_hex(20),
+            "token_type": "bearer",
+            "expires_in": 86400,
+            "refresh_token": secrets.token_hex(20),
+        })
+    code = data.get("code", "")
+    if code in _oauth_codes:
+        del _oauth_codes[code]
+    return web.json_response({
+        "access_token": secrets.token_hex(20),
+        "token_type": "bearer",
+        "expires_in": 86400,
+        "refresh_token": secrets.token_hex(20),
+    })
+
+
+# ── Main with OAuth routes ─────────────────────────────────
 
 if __name__ == "__main__":
-    port = os.environ.get("PORT", os.environ.get("WEB_PORT", "8000"))
-    os.environ["MCP_HTTP_PORT"] = str(port)
-    os.environ["MCP_HTTP_HOST"] = "0.0.0.0"
+    import uvicorn
+    from starlette.applications import Starlette
+    from starlette.routing import Route, Mount
+    from starlette.responses import JSONResponse, RedirectResponse, Response
+    from starlette.requests import Request as StarletteRequest
+
+    port = int(os.environ.get("PORT", os.environ.get("WEB_PORT", "8000")))
+
+    # Build the MCP ASGI app
+    mcp_app = mcp.streamable_http_app()
+
+    # OAuth routes as Starlette
+    async def s_oauth_meta(request):
+        base = get_base_url()
+        return JSONResponse({
+            "issuer": base,
+            "authorization_endpoint": f"{base}/oauth/authorize",
+            "token_endpoint": f"{base}/oauth/token",
+            "registration_endpoint": f"{base}/oauth/register",
+            "response_types_supported": ["code"],
+            "grant_types_supported": ["authorization_code", "refresh_token"],
+            "token_endpoint_auth_methods_supported": ["client_secret_post", "client_secret_basic"],
+            "code_challenge_methods_supported": ["S256", "plain"],
+        })
+
+    async def s_oauth_register(request):
+        try:
+            data = await request.json()
+        except Exception:
+            data = {}
+        client_id = "voice-" + secrets.token_hex(8)
+        client_secret = secrets.token_hex(16)
+        redirect_uris = data.get("redirect_uris", [])
+        _oauth_clients[client_id] = {"secret": client_secret, "redirect_uris": redirect_uris}
+        return JSONResponse({
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uris": redirect_uris,
+            "grant_types": ["authorization_code", "refresh_token"],
+            "response_types": ["code"],
+            "token_endpoint_auth_method": "client_secret_post",
+        })
+
+    async def s_oauth_authorize(request):
+        params = request.query_params
+        redirect_uri = params.get("redirect_uri", "")
+        client_id = params.get("client_id", "")
+        state = params.get("state", "")
+        code = secrets.token_hex(16)
+        _oauth_codes[code] = {"client_id": client_id, "redirect_uri": redirect_uri, "ts": time.time()}
+        sep = "&" if "?" in redirect_uri else "?"
+        location = f"{redirect_uri}{sep}code={code}&state={state}"
+        return RedirectResponse(location)
+
+    async def s_oauth_token(request):
+        content_type = request.headers.get("content-type", "")
+        if "json" in content_type:
+            try:
+                data = await request.json()
+            except Exception:
+                data = {}
+        else:
+            try:
+                form = await request.form()
+                data = dict(form)
+            except Exception:
+                data = {}
+        grant_type = data.get("grant_type", "")
+        code = data.get("code", "")
+        if code in _oauth_codes:
+            del _oauth_codes[code]
+        return JSONResponse({
+            "access_token": secrets.token_hex(20),
+            "token_type": "bearer",
+            "expires_in": 86400,
+            "refresh_token": secrets.token_hex(20),
+        })
+
+    app = Starlette(routes=[
+        Route("/.well-known/oauth-authorization-server", s_oauth_meta, methods=["GET"]),
+        Route("/oauth/register", s_oauth_register, methods=["POST"]),
+        Route("/oauth/authorize", s_oauth_authorize, methods=["GET"]),
+        Route("/oauth/token", s_oauth_token, methods=["POST"]),
+        Mount("/mcp", app=mcp_app),
+    ])
+
     print(f"✓ 昨的语音条 MCP 启动中，端口 {port}...")
-    mcp.run(transport="streamable-http")
+    uvicorn.run(app, host="0.0.0.0", port=port)
