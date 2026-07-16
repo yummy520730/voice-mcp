@@ -261,6 +261,8 @@ async def voice_config(
 # ── Main ───────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", os.environ.get("WEB_PORT", "8000")))
+    port = os.environ.get("PORT", os.environ.get("WEB_PORT", "8000"))
+    os.environ["MCP_HTTP_PORT"] = str(port)
+    os.environ["MCP_HTTP_HOST"] = "0.0.0.0"
     print(f"✓ 昨的语音条 MCP 启动中，端口 {port}...")
-    mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
+    mcp.run(transport="streamable-http")
