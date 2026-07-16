@@ -428,14 +428,18 @@ if __name__ == "__main__":
             "authorization_servers": [base],
         })
 
-    app = Starlette(routes=[
-        Route("/.well-known/oauth-authorization-server", s_oauth_meta, methods=["GET"]),
-        Route("/.well-known/oauth-protected-resource", s_oauth_protected_resource, methods=["GET"]),
-        Route("/oauth/register", s_oauth_register, methods=["POST"]),
-        Route("/oauth/authorize", s_oauth_authorize, methods=["GET"]),
-        Route("/oauth/token", s_oauth_token, methods=["POST"]),
-        Mount("/", app=mcp_app),
-    ])
+oauth_routes = [
+    Route("/.well-known/oauth-authorization-server", s_oauth_meta, methods=["GET"]),
+    Route("/.well-known/oauth-protected-resource", s_oauth_protected_resource, methods=["GET"]),
+    Route("/oauth/register", s_oauth_register, methods=["POST"]),
+    Route("/oauth/authorize", s_oauth_authorize, methods=["GET"]),
+    Route("/oauth/token", s_oauth_token, methods=["POST"]),
+]
+
+for route in reversed(oauth_routes):
+    mcp_app.router.routes.insert(0, route)
+
+app = mcp_app
 
     print(f"✓ 昨的语音条 MCP 启动中，端口 {port}...")
     uvicorn.run(app, host="0.0.0.0", port=port)
