@@ -1,0 +1,4 @@
+mcp[cli]
+aiohttp
+pydantic
+numpy

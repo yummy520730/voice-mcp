@@ -1,0 +1,125 @@
+<!--
+  祈牌语音条 · Voice Card Template
+  Rendered inline in Claude.ai chat via MCP
+  All placeholders replaced by server.py at runtime
+-->
+<div id="vc" style="
+  display:inline-flex; align-items:center; gap:10px;
+  background:linear-gradient(135deg, {{COLOR_BG}}, {{COLOR_BG_END}});
+  border-radius:18px; padding:10px 16px;
+  max-width:320px; min-width:200px;
+  border:1px solid {{COLOR_PRIMARY}}22;
+  position:relative; cursor:pointer;
+  font-family:-apple-system,system-ui,sans-serif;
+  box-shadow:0 2px 8px rgba(0,0,0,0.12);
+" onclick="toggleVoice()">
+
+  <!-- Play/Pause Button -->
+  <div id="playBtn" style="
+    width:32px; height:32px; border-radius:50%;
+    background:linear-gradient(135deg, {{COLOR_PRIMARY}}, {{COLOR_SECONDARY}});
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0; box-shadow:0 2px 6px {{COLOR_PRIMARY}}44;
+  ">
+    <svg id="iconPlay" width="14" height="14" viewBox="0 0 24 24" fill="white">
+      <path d="M8 5v14l11-7z"/>
+    </svg>
+    <svg id="iconPause" width="14" height="14" viewBox="0 0 24 24" fill="white" style="display:none">
+      <path d="M6 4h4v16H6zM14 4h4v16h-4z"/>
+    </svg>
+  </div>
+
+  <!-- Waveform -->
+  <div style="flex:1;display:flex;flex-direction:column;gap:4px;min-width:0;">
+    <div id="waveform" style="display:flex;align-items:center;gap:2px;height:28px;"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span id="timeDisplay" style="font-size:10px;color:{{COLOR_PRIMARY}};font-weight:500;">0:00</span>
+      <span style="font-size:9px;color:rgba(255,255,255,0.25);">{{SENDER_NAME}} · 语音</span>
+      <span style="font-size:10px;color:rgba(255,255,255,0.3);">{{DURATION}}"</span>
+    </div>
+  </div>
+
+  <!-- Hidden Audio Element -->
+  <audio id="audioEl" preload="auto">
+    <source src="data:{{AUDIO_MIME}};base64,{{AUDIO_B64}}" type="{{AUDIO_MIME}}">
+  </audio>
+
+  {{CUSTOM_CSS}}
+</div>
+
+<script>
+(function(){
+  const audio = document.getElementById('audioEl');
+  const wave = document.getElementById('waveform');
+  const timeEl = document.getElementById('timeDisplay');
+  const playIcon = document.getElementById('iconPlay');
+  const pauseIcon = document.getElementById('iconPause');
+  const barCount = {{BAR_COUNT}};
+  const bars = [];
+
+  // Generate waveform bars
+  for(let i=0; i<barCount; i++){
+    const bar = document.createElement('div');
+    const pos = i/barCount;
+    const env = Math.sin(pos*Math.PI)*0.6+0.4;
+    const noise = 0.3+Math.random()*0.7;
+    const h = Math.max(12, Math.min(100, noise*env*100));
+    bar.style.cssText = `
+      flex:1; height:${h}%; border-radius:1.5px; min-width:2px; max-width:3.5px;
+      background:rgba(255,255,255,0.15); transition:background 0.12s;
+    `;
+    bar.dataset.idx = i;
+    wave.appendChild(bar);
+    bars.push(bar);
+  }
+
+  let playing = false;
+  let animFrame;
+
+  function updateProgress(){
+    if(!playing) return;
+    const progress = audio.currentTime / (audio.duration || 1);
+    const active = Math.floor(progress * bars.length);
+    bars.forEach((b,i) => {
+      if(i < active){
+        b.style.background = 'linear-gradient(to top, {{COLOR_PRIMARY}}, {{COLOR_SECONDARY}})';
+        b.style.boxShadow = '0 0 3px {{COLOR_PRIMARY}}33';
+      } else {
+        b.style.background = 'rgba(255,255,255,0.15)';
+        b.style.boxShadow = 'none';
+      }
+    });
+    const secs = Math.floor(audio.currentTime);
+    const m = Math.floor(secs/60);
+    const s = secs%60;
+    timeEl.textContent = m+':'+String(s).padStart(2,'0');
+    animFrame = requestAnimationFrame(updateProgress);
+  }
+
+  window.toggleVoice = function(){
+    if(playing){
+      audio.pause();
+      playing = false;
+      playIcon.style.display = 'block';
+      pauseIcon.style.display = 'none';
+      cancelAnimationFrame(animFrame);
+    } else {
+      audio.play().then(()=>{
+        playing = true;
+        playIcon.style.display = 'none';
+        pauseIcon.style.display = 'block';
+        updateProgress();
+      }).catch(e => console.warn('Playback failed:', e));
+    }
+  };
+
+  audio.addEventListener('ended', ()=>{
+    playing = false;
+    playIcon.style.display = 'block';
+    pauseIcon.style.display = 'none';
+    cancelAnimationFrame(animFrame);
+    bars.forEach(b => { b.style.background='rgba(255,255,255,0.15)'; b.style.boxShadow='none'; });
+    timeEl.textContent = '0:00';
+  });
+})();
+</script>

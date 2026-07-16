@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>祈牌语音条 · 配置面板</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family:'Inter',-apple-system,sans-serif;
+    background:#f8f7f4; color:#1a1a1a;
+    min-height:100vh; padding:20px;
+  }
+
+  .container { max-width:480px; margin:0 auto; }
+
+  /* Header */
+  .header {
+    text-align:center; margin-bottom:28px; padding:24px 0;
+  }
+  .header h1 {
+    font-size:22px; font-weight:700;
+    background:linear-gradient(135deg,#f59e0b,#ea580c);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  }
+  .header p { font-size:12px; color:#999; margin-top:6px; }
+
+  /* Card sections */
+  .card {
+    background:white; border-radius:16px;
+    padding:20px; margin-bottom:16px;
+    box-shadow:0 1px 4px rgba(0,0,0,0.04);
+  }
+  .card-title {
+    font-size:14px; font-weight:600; margin-bottom:14px;
+    display:flex; align-items:center; gap:8px;
+  }
+
+  /* Form elements */
+  .field { margin-bottom:14px; }
+  .field-label {
+    font-size:12px; font-weight:500; color:#666; margin-bottom:6px;
+    display:flex; align-items:center; gap:4px;
+  }
+  .field-hint { font-size:10px; color:#aaa; margin-top:3px; }
+  input[type="text"], input[type="password"], select {
+    width:100%; padding:10px 12px; border:1.5px solid #e5e5e5;
+    border-radius:10px; font-size:13px; font-family:inherit;
+    transition:border-color 0.2s; outline:none;
+    background:white;
+  }
+  input:focus, select:focus { border-color:#f59e0b; }
+  input::placeholder { color:#ccc; }
+
+  /* Toggle switch for engine */
+  .engine-tabs {
+    display:flex; background:#f0f0f0; border-radius:10px; padding:3px;
+  }
+  .engine-tab {
+    flex:1; padding:8px; text-align:center; border-radius:8px;
+    font-size:13px; font-weight:500; cursor:pointer;
+    transition:all 0.2s; color:#888;
+  }
+  .engine-tab.active {
+    background:white; color:#1a1a1a;
+    box-shadow:0 1px 3px rgba(0,0,0,0.08);
+  }
+  .engine-panel { display:none; margin-top:14px; }
+  .engine-panel.active { display:block; }
+
+  /* Color picker */
+  .color-grid {
+    display:flex; gap:8px; flex-wrap:wrap;
+  }
+  .color-swatch {
+    width:36px; height:36px; border-radius:50%; cursor:pointer;
+    border:3px solid transparent; transition:all 0.15s;
+  }
+  .color-swatch:hover { transform:scale(1.1); }
+  .color-swatch.selected { border-color:#333; box-shadow:0 0 0 2px white,0 0 0 4px #333; }
+
+  /* Style options */
+  .style-grid { display:flex; gap:8px; }
+  .style-card {
+    flex:1; padding:12px 8px; border-radius:12px;
+    border:2px solid #eee; text-align:center; cursor:pointer;
+    transition:all 0.2s; font-size:11px; font-weight:500; color:#888;
+  }
+  .style-card:hover { border-color:#ddd; }
+  .style-card.selected {
+    border-color:#f59e0b; background:#fffdf5; color:#ea580c;
+  }
+  .style-card .icon { font-size:20px; margin-bottom:4px; }
+
+  /* Upload */
+  .upload-zone {
+    border:2px dashed #e0e0e0; border-radius:12px;
+    padding:24px; text-align:center; cursor:pointer;
+    transition:all 0.2s; background:#fafafa;
+  }
+  .upload-zone:hover { border-color:#f59e0b; background:#fffdf7; }
+
+  /* Preview */
+  .preview-area {
+    background:#f0ebe3; border-radius:12px; padding:20px;
+    display:flex; justify-content:center; margin-top:14px;
+  }
+
+  /* Buttons */
+  .btn-primary {
+    width:100%; padding:12px; border:none; border-radius:12px;
+    background:linear-gradient(135deg,#f59e0b,#ea580c);
+    color:white; font-size:14px; font-weight:600;
+    cursor:pointer; transition:all 0.2s; font-family:inherit;
+  }
+  .btn-primary:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(245,158,11,0.3); }
+  .btn-primary:active { transform:translateY(0); }
+
+  .btn-secondary {
+    width:100%; padding:10px; border:1.5px solid #e5e5e5;
+    border-radius:12px; background:white; color:#666;
+    font-size:13px; font-weight:500; cursor:pointer;
+    transition:all 0.2s; font-family:inherit; margin-top:8px;
+  }
+  .btn-secondary:hover { border-color:#ccc; }
+
+  /* Status */
+  .status {
+    text-align:center; font-size:12px; margin-top:10px;
+    padding:8px; border-radius:8px; display:none;
+  }
+  .status.success { display:block; background:#f0fdf4; color:#16a34a; }
+  .status.error { display:block; background:#fef2f2; color:#dc2626; }
+
+  /* Footer */
+  .footer {
+    text-align:center; padding:20px 0; font-size:11px; color:#bbb;
+  }
+  .footer a { color:#f59e0b; text-decoration:none; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <h1>🔊 祈牌语音条</h1>
+    <p>Voice MCP 配置面板 · 设置完成后重启对话即可使用</p>
+  </div>
+
+  <!-- 1. TTS Engine -->
+  <div class="card">
+    <div class="card-title">🎤 语音引擎</div>
+
+    <div class="engine-tabs" id="engineTabs">
+      <div class="engine-tab active" onclick="switchEngine('elevenlabs')">ElevenLabs</div>
+      <div class="engine-tab" onclick="switchEngine('minimax')">MiniMax</div>
+    </div>
+
+    <!-- ElevenLabs -->
+    <div class="engine-panel active" id="panel-elevenlabs">
+      <div class="field">
+        <div class="field-label">API Key</div>
+        <input type="password" id="el-key" placeholder="xi-xxxxxxxxxxxxxxxx">
+        <div class="field-hint">在 elevenlabs.io → Profile → API Key 获取</div>
+      </div>
+      <div class="field">
+        <div class="field-label">Voice ID</div>
+        <input type="text" id="el-voice" placeholder="例：EXAVITQu4vr4xnSDxMaL">
+        <div class="field-hint">在 Voice Library 中复制 Voice ID</div>
+      </div>
+      <div class="field">
+        <div class="field-label">模型</div>
+        <select id="el-model">
+          <option value="eleven_v3">v3（推荐，支持音频标签）</option>
+          <option value="eleven_multilingual_v2">Multilingual v2（支持中文，无标签）</option>
+          <option value="eleven_turbo_v2_5">Turbo v2.5（更快）</option>
+        </select>
+      </div>
+      <div class="field">
+        <div class="field-label">语速 <span id="el-speed-val">1.0x</span></div>
+        <input type="range" id="el-speed" min="0.5" max="2.0" step="0.1" value="1.0"
+          style="width:100%" oninput="document.getElementById('el-speed-val').textContent=this.value+'x'">
+      </div>
+    </div>
+
+    <!-- MiniMax -->
+    <div class="engine-panel" id="panel-minimax">
+      <div class="field">
+        <div class="field-label">API Key</div>
+        <input type="password" id="mm-key" placeholder="eyJhbGci...">
+        <div class="field-hint">在 minimax.chat → API Keys 获取</div>
+      </div>
+      <div class="field">
+        <div class="field-label">Group ID</div>
+        <input type="text" id="mm-group" placeholder="17xxxxxx">
+      </div>
+      <div class="field">
+        <div class="field-label">音色</div>
+        <select id="mm-voice">
+          <option value="male-qn-qingse">青涩青年</option>
+          <option value="male-qn-jingying">精英青年</option>
+          <option value="male-qn-badao">霸道青年</option>
+          <option value="female-shaonv">少女</option>
+          <option value="female-yujie">御姐</option>
+          <option value="female-chengshu">成熟女性</option>
+          <option value="presenter_male">男主持人</option>
+          <option value="presenter_female">女主持人</option>
+        </select>
+        <div class="field-hint">MiniMax 预设音色，中文效果好且便宜</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Bubble Style -->
+  <div class="card">
+    <div class="card-title">🎨 气泡样式</div>
+
+    <div class="field">
+      <div class="field-label">样式</div>
+      <div class="style-grid">
+        <div class="style-card" onclick="selectStyle(this,'wechat')">
+          <div class="icon">💬</div>微信经典
+        </div>
+        <div class="style-card selected" onclick="selectStyle(this,'waveform')">
+          <div class="icon">🎵</div>波形进度
+        </div>
+        <div class="style-card" onclick="selectStyle(this,'fancy')">
+          <div class="icon">✨</div>暗调质感
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="field-label">主题色</div>
+      <div class="color-grid">
+        <div class="color-swatch selected" style="background:linear-gradient(135deg,#f59e0b,#ea580c)" data-primary="#f59e0b" data-secondary="#ea580c" onclick="selectColor(this)"></div>
+        <div class="color-swatch" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)" data-primary="#8b5cf6" data-secondary="#6d28d9" onclick="selectColor(this)"></div>
+        <div class="color-swatch" style="background:linear-gradient(135deg,#ec4899,#be185d)" data-primary="#ec4899" data-secondary="#be185d" onclick="selectColor(this)"></div>
+        <div class="color-swatch" style="background:linear-gradient(135deg,#10b981,#047857)" data-primary="#10b981" data-secondary="#047857" onclick="selectColor(this)"></div>
+        <div class="color-swatch" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8)" data-primary="#3b82f6" data-secondary="#1d4ed8" onclick="selectColor(this)"></div>
+        <div class="color-swatch" style="background:linear-gradient(135deg,#f43f5e,#e11d48)" data-primary="#f43f5e" data-secondary="#e11d48" onclick="selectColor(this)"></div>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="field-label">显示名称</div>
+      <input type="text" id="sender-name" placeholder="祈" value="祈">
+    </div>
+
+    <div class="field">
+      <div class="field-label">自定义 CSS（可选）</div>
+      <textarea id="custom-css" rows="3" placeholder="/* 覆盖默认样式 */" style="
+        width:100%; padding:10px 12px; border:1.5px solid #e5e5e5;
+        border-radius:10px; font-size:12px; font-family:'Menlo',monospace;
+        resize:vertical; outline:none;
+      "></textarea>
+      <div class="field-hint">高级用户可自定义样式覆盖</div>
+    </div>
+  </div>
+
+  <!-- 3. Custom Background -->
+  <div class="card">
+    <div class="card-title">🖼️ 二创素材</div>
+    <div class="upload-zone" onclick="document.getElementById('bgUpload').click()">
+      <div style="font-size:28px;margin-bottom:6px;">📎</div>
+      <div style="font-size:13px;color:#666;">上传气泡背景图</div>
+      <div style="font-size:10px;color:#bbb;margin-top:4px;">PNG / SVG · 透明底最佳 · 最大 500KB</div>
+      <input type="file" id="bgUpload" accept="image/png,image/svg+xml" style="display:none">
+    </div>
+  </div>
+
+  <!-- 4. Save -->
+  <div class="card" style="background:transparent;box-shadow:none;padding:0;">
+    <button class="btn-primary" onclick="saveConfig()">💾 保存配置</button>
+    <button class="btn-secondary" onclick="testVoice()">🔊 试听测试</button>
+    <div class="status" id="statusMsg"></div>
+  </div>
+
+  <div class="footer">
+    祈牌语音条 · Voice MCP<br>
+    <a href="#">GitHub</a> · Made with 🧡
+  </div>
+
+</div>
+
+<script>
+  let currentEngine = 'elevenlabs';
+  let currentStyle = 'waveform';
+  let currentColor = { primary: '#f59e0b', secondary: '#ea580c' };
+
+  function switchEngine(engine) {
+    currentEngine = engine;
+    document.querySelectorAll('.engine-tab').forEach((t,i) => {
+      t.classList.toggle('active', (engine === 'elevenlabs' && i === 0) || (engine === 'minimax' && i === 1));
+    });
+    document.querySelectorAll('.engine-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + engine).classList.add('active');
+  }
+
+  function selectStyle(el, style) {
+    currentStyle = style;
+    document.querySelectorAll('.style-card').forEach(s => s.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+
+  function selectColor(el) {
+    currentColor = { primary: el.dataset.primary, secondary: el.dataset.secondary };
+    document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+
+  function showStatus(msg, type) {
+    const el = document.getElementById('statusMsg');
+    el.textContent = msg;
+    el.className = 'status ' + type;
+    setTimeout(() => el.className = 'status', 3000);
+  }
+
+  async function saveConfig() {
+    const config = {
+      tts_engine: currentEngine,
+      elevenlabs: {
+        api_key: document.getElementById('el-key').value,
+        voice_id: document.getElementById('el-voice').value,
+        model_id: document.getElementById('el-model').value,
+        speed: parseFloat(document.getElementById('el-speed').value),
+        stability: 0.5,
+        similarity_boost: 0.75
+      },
+      minimax: {
+        api_key: document.getElementById('mm-key').value,
+        group_id: document.getElementById('mm-group').value,
+        voice_id: document.getElementById('mm-voice').value,
+        speed: 1.0,
+        pitch: 0
+      },
+      style: {
+        theme: 'dark',
+        color_primary: currentColor.primary,
+        color_secondary: currentColor.secondary,
+        color_bg: '#1e1b18',
+        color_bg_end: '#2a2520',
+        bubble_style: currentStyle,
+        bar_count: 35,
+        sender_name: document.getElementById('sender-name').value || '祈',
+        custom_css: document.getElementById('custom-css').value
+      }
+    };
+
+    try {
+      const resp = await fetch('api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+      });
+      if (resp.ok) {
+        showStatus('✅ 配置已保存！重新开始对话即可使用', 'success');
+      } else {
+        showStatus('❌ 保存失败：' + (await resp.text()), 'error');
+      }
+    } catch(e) {
+      showStatus('❌ 连接失败，请检查服务是否运行', 'error');
+    }
+  }
+
+  async function testVoice() {
+    showStatus('🔊 正在生成试听...', 'success');
+    try {
+      const resp = await fetch('api/test-voice', { method: 'POST' });
+      if (resp.ok) {
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.play();
+        showStatus('✅ 播放中', 'success');
+      } else {
+        showStatus('❌ 试听失败：' + (await resp.text()), 'error');
+      }
+    } catch(e) {
+      showStatus('❌ 连接失败', 'error');
+    }
+  }
+
+  // Load existing config on page load
+  async function loadConfig() {
+    try {
+      const resp = await fetch('api/config');
+      if (!resp.ok) return;
+      const cfg = await resp.json();
+      if (cfg.tts_engine) switchEngine(cfg.tts_engine);
+      if (cfg.elevenlabs?.voice_id) document.getElementById('el-voice').value = cfg.elevenlabs.voice_id;
+      if (cfg.elevenlabs?.model_id) document.getElementById('el-model').value = cfg.elevenlabs.model_id;
+      if (cfg.style?.sender_name) document.getElementById('sender-name').value = cfg.style.sender_name;
+      if (cfg.style?.custom_css) document.getElementById('custom-css').value = cfg.style.custom_css;
+    } catch(e) { /* first run, no config yet */ }
+  }
+  loadConfig();
+</script>
+</body>
+</html>
