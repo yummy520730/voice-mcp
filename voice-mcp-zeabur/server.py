@@ -421,11 +421,20 @@ if __name__ == "__main__":
             "refresh_token": secrets.token_hex(20),
         })
 
+    async def s_oauth_protected_resource(request):
+        base = get_base_url()
+        return JSONResponse({
+            "resource": base,
+            "authorization_servers": [base],
+        })
+
     app = Starlette(routes=[
         Route("/.well-known/oauth-authorization-server", s_oauth_meta, methods=["GET"]),
+        Route("/.well-known/oauth-protected-resource", s_oauth_protected_resource, methods=["GET"]),
         Route("/oauth/register", s_oauth_register, methods=["POST"]),
         Route("/oauth/authorize", s_oauth_authorize, methods=["GET"]),
         Route("/oauth/token", s_oauth_token, methods=["POST"]),
+        Mount("/mcp/", app=mcp_app),
         Mount("/mcp", app=mcp_app),
     ])
 
