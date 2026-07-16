@@ -441,5 +441,6 @@ for route in reversed(oauth_routes):
 
 app = mcp_app
 
+if __name__ == "__main__":
     print(f"✓ 昨的语音条 MCP 启动中，端口 {port}...")
     uvicorn.run(app, host="0.0.0.0", port=port)
