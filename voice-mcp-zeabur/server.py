@@ -434,8 +434,7 @@ if __name__ == "__main__":
         Route("/oauth/register", s_oauth_register, methods=["POST"]),
         Route("/oauth/authorize", s_oauth_authorize, methods=["GET"]),
         Route("/oauth/token", s_oauth_token, methods=["POST"]),
-        Mount("/mcp/", app=mcp_app),
-        Mount("/mcp", app=mcp_app),
+        Mount("/", app=mcp_app),
     ])
 
     print(f"✓ 昨的语音条 MCP 启动中，端口 {port}...")
