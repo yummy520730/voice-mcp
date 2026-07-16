@@ -2,3 +2,5 @@ mcp[cli]
 aiohttp
 pydantic
 numpy
+starlette
+uvicorn
