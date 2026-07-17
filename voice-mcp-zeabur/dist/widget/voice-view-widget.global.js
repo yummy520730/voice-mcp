@@ -1,6 +1,17 @@
 (function(){"use strict";
-// Minimal MCP ext-apps App shim
-class App{constructor(a,b,c){this._opts=c||{};this._listeners={}}addEventListener(t,f){this._listeners[t]=f}async connect(){try{const h=(e)=>{if(!e.data||e.data.jsonrpc!=="2.0")return;if(e.data.method==="ui/notifications/tool-result"&&this._listeners.toolresult){this._listeners.toolresult(e.data.params)}};window.addEventListener("message",h);window.parent.postMessage({jsonrpc:"2.0",method:"mcp/register",id:1},"*")}catch(e){}}sendSizeChanged(s){try{window.parent.postMessage({jsonrpc:"2.0",method:"ui/sizeChanged",params:s},"*")}catch(e){}}}
+// Minimal MCP Apps 2026-01-26 View-to-Host bridge.
+// The legacy registration shim made Claude treat the View as a second handler
+// registration and replace its own tool-result handler.
+class App{
+constructor(info,capabilities,opts){this._info=info||{name:"voice-mcp",version:"1.0.1"};this._capabilities=capabilities||{availableDisplayModes:["inline"]};this._opts=opts||{};this._listeners={};this._connected=false;this._initId="voice-mcp-ui-init";this._onMessage=this._handleMessage.bind(this)}
+addEventListener(type,listener){this._listeners[type]=listener}
+_post(message){window.parent.postMessage(message,"*")}
+_handleMessage(event){if(event.source!==window.parent)return;var message=event.data;if(!message||message.jsonrpc!=="2.0")return;
+if(message.id===this._initId){if(message.error){console.warn("[voice] MCP Apps initialize failed:",message.error);return}this._connected=true;this._post({jsonrpc:"2.0",method:"ui/notifications/initialized"});return}
+if(message.method==="ui/notifications/tool-result"&&this._listeners.toolresult){this._listeners.toolresult(message.params);return}
+if(message.method==="ui/resource-teardown"&&message.id!==undefined){this._post({jsonrpc:"2.0",id:message.id,result:{}});window.removeEventListener("message",this._onMessage)}}
+async connect(){window.addEventListener("message",this._onMessage);this._post({jsonrpc:"2.0",id:this._initId,method:"ui/initialize",params:{protocolVersion:"2026-01-26",appInfo:this._info,appCapabilities:this._capabilities}})}
+sendSizeChanged(size){if(!this._connected)return;this._post({jsonrpc:"2.0",method:"ui/notifications/size-changed",params:size})}}
 
 function coerce(data){if(!data||typeof data!=="object")return null;var d=data;if(typeof d.audioUrl!=="string"||!d.audioUrl)return null;var str=function(v,fb){return typeof v==="string"&&v?v:fb};var num=function(v,fb){return typeof v==="number"&&isFinite(v)?v:fb};return{audioUrl:d.audioUrl,duration:num(d.duration,1),senderName:str(d.senderName,"\u6628"),colorPrimary:str(d.colorPrimary,"#94a3b8"),colorSecondary:str(d.colorSecondary,"#64748b"),colorBg:str(d.colorBg,"#0f172a"),colorBgEnd:str(d.colorBgEnd,"#1e293b"),barCount:num(d.barCount,28),bgImage:str(d.bgImage,""),customCss:str(d.customCss,""),bars:Array.isArray(d.bars)?d.bars.map(function(x){return typeof x==="number"?x:0}):[]}}
 function seeded(i){var x=Math.sin(i*12.9898+78.233)*43758.5453;return x-Math.floor(x)}
@@ -37,6 +48,6 @@ if(platform==="claude"){var reportH=function(){var h=Math.ceil(card.getBoundingC
 function showError(msg){if(rendered)return;var root=document.getElementById("root");if(root)root.innerHTML='<div style="color:#b8aabb;font-size:13px;padding:10px;">'+msg+"</div>"}
 function renderToolResult(params,platform){var data=coerce(params&&params.structuredContent);if(!data&&Array.isArray(params&&params.content)){for(var i=0;i<params.content.length;i++){var block=params.content[i];if(block.type==="text"&&block.text){try{data=coerce(JSON.parse(block.text))}catch(e){}if(data)break}}}if(data)render(data,platform)}
 function tryChatGpt(){if(!window.openai)return;var apply=function(){var data=coerce(window.openai&&window.openai.toolOutput);if(data)render(data,"chatgpt")};apply();window.addEventListener("openai:set_globals",apply);window.addEventListener("message",function(event){if(event.source!==window.parent)return;var message=event.data;if(!message||message.jsonrpc!=="2.0")return;if(message.method!=="ui/notifications/tool-result")return;renderToolResult(message.params,"chatgpt")})}
-function tryMcpApps(){try{var app=new App({name:"voice-mcp",version:"1.0.0"},{},{autoResize:false});appRef=app;app.addEventListener("toolresult",function(params){renderToolResult(params,"claude")});app.connect()}catch(e){console.debug("[voice] MCP Apps connect skipped:",e)}}
-function boot(){tryChatGpt();tryMcpApps();setTimeout(function(){showError("\u7b49\u5f85\u8bed\u97f3\u6570\u636e\u2026")},4000)}
+function tryMcpApps(){try{var app=new App({name:"voice-mcp",version:"1.0.1"},{availableDisplayModes:["inline"]},{autoResize:false});appRef=app;app.addEventListener("toolresult",function(params){renderToolResult(params,"claude")});app.connect()}catch(e){console.debug("[voice] MCP Apps connect skipped:",e)}}
+function boot(){if(window.openai){tryChatGpt()}else{tryMcpApps()}setTimeout(function(){showError("\u7b49\u5f85\u8bed\u97f3\u6570\u636e\u2026")},4000)}
 boot()})();
