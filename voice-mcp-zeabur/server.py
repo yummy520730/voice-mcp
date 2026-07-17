@@ -33,11 +33,11 @@ BASE_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = BASE_DIR / "config.json"
 WIDGET_JS_PATH = BASE_DIR / "dist" / "widget" / "voice-view-widget.global.js"
 
-VOICE_VIEW_URI = "ui://voice-view/mcp-app-v9.html"
+VOICE_VIEW_URI = "ui://voice-view/mcp-app-v10.html"
 VOICE_VIEW_MIME = "text/html;profile=mcp-app"
 LEGACY_VIEW_URIS = [
     f"ui://voice-view/mcp-app-v{i}.html"
-    for i in range(1, 9)
+    for i in range(1, 10)
 ]
 
 DEFAULT_CONFIG: dict[str, Any] = {
